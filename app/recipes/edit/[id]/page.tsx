@@ -18,7 +18,6 @@ interface Ingredient {
   buyText: string
   position: number
   recipe_id?: string
-  shopping_text?: string
 }
 
 interface Label {
@@ -80,7 +79,6 @@ export default function EditRecipePage({ params }: { params: { id: string } }) {
         buyText: ing.quantity || "",
         position: ing.position,
         recipe_id: ing.recipe_id,
-        shopping_text: ing.shopping_text || "",
       }))
 
       setIngredients(transformedIngredients)
@@ -102,9 +100,7 @@ export default function EditRecipePage({ params }: { params: { id: string } }) {
 
   const handleIngredientChange = (id: string, field: keyof Ingredient, value: string) => {
     setIngredients((prev) =>
-      prev.map((ing) =>
-        ing.id === id ? { ...ing, [field]: field === "label" && value === "default" ? null : value } : ing,
-      ),
+      prev.map((ing) => (ing.id === id ? { ...ing, [field]: field === "label" && value === "" ? null : value } : ing)),
     )
   }
 
@@ -115,7 +111,6 @@ export default function EditRecipePage({ params }: { params: { id: string } }) {
       label: null,
       buyText: "",
       position: ingredients.length,
-      shopping_text: "",
     }
     setIngredients([...ingredients, newIngredient])
   }
@@ -169,7 +164,6 @@ export default function EditRecipePage({ params }: { params: { id: string } }) {
             label: ing.label,
             quantity: ing.buyText.trim() || null,
             position: ing.position,
-            shopping_text: ing.shopping_text?.trim() || null,
           })
           .eq("id", ing.id)
       }
@@ -182,7 +176,6 @@ export default function EditRecipePage({ params }: { params: { id: string } }) {
           label: ing.label,
           quantity: ing.buyText.trim() || null,
           position: existingIngredients.length + index,
-          shopping_text: ing.shopping_text?.trim() || null,
         }))
 
         const { error: insertError } = await supabase.from("ingredients").insert(ingredientsToInsert)
@@ -268,14 +261,14 @@ export default function EditRecipePage({ params }: { params: { id: string } }) {
                     </td>
                     <td className="p-2">
                       <Select
-                        value={ingredient.label || "default"}
+                        value={ingredient.label || "default"} // Updated default value
                         onValueChange={(value) => handleIngredientChange(ingredient.id, "label", value)}
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select label" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="default">No label</SelectItem>
+                          <SelectItem value="default">No label</SelectItem> {/* Updated value */}
                           {labels.map((label) => (
                             <SelectItem key={label.id} value={label.id}>
                               <div className="flex items-center gap-2">
@@ -289,9 +282,9 @@ export default function EditRecipePage({ params }: { params: { id: string } }) {
                     </td>
                     <td className="p-2">
                       <Input
-                        value={ingredient.shopping_text || ""}
-                        onChange={(e) => handleIngredientChange(ingredient.id, "shopping_text", e.target.value)}
-                        placeholder="Optional override text for shopping list"
+                        value={ingredient.buyText}
+                        onChange={(e) => handleIngredientChange(ingredient.id, "buyText", e.target.value)}
+                        placeholder="Optional override text"
                         className="w-full"
                       />
                     </td>

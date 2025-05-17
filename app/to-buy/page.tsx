@@ -36,9 +36,7 @@ interface ShoppingItem {
   label: string
   recipe_name?: string
   position: number
-  shopping_text?: string
-  pantry_item_id?: string
-  ingredient_id?: string
+  shopping_text?: string // Toegevoegd voor Shopping List Text
 }
 
 function SortableShoppingItem({
@@ -57,7 +55,7 @@ function SortableShoppingItem({
     transition,
   }
 
-  // Gebruik shopping_text als het bestaat, anders gebruik name
+  // Gebruik shopping_text als het bestaat, anders gebruik name en quantity
   const displayText = item.shopping_text || item.name
 
   return (
@@ -167,14 +165,6 @@ export default function ToBuyPage() {
       setActiveLabel(filteredLabels[0].id)
     }
 
-    // Initialiseer de grouped object voor alle items
-    const grouped: { [key: string]: ShoppingItem[] } = {}
-
-    // Initialiseer voor elke label een lege array
-    filteredLabels.forEach((label) => {
-      grouped[label.id] = []
-    })
-
     // Fetch ingredients from planned meals
     const { data: plannedMeals, error: plannedMealsError } = await supabase.from("planned_meals").select("recipe_id")
 
@@ -186,135 +176,62 @@ export default function ToBuyPage() {
     // Get all recipe IDs from planned meals
     const plannedRecipeIds = plannedMeals.map((meal) => meal.recipe_id)
 
-    // Fetch ingredients if there are planned recipes
-    if (plannedRecipeIds.length > 0) {
-      const { data: ingredients, error: ingredientsError } = await supabase
-        .from("ingredients")
-        .select(`
-          id,
-          name,
-          quantity,
-          label,
-          position,
-          recipe_id,
-          shopping_text,
-          recipes:recipe_id (
-            title
-          )
-        `)
-        .in("recipe_id", plannedRecipeIds)
-        .order("position")
-
-      if (ingredientsError) {
-        console.error("Error fetching ingredients:", ingredientsError)
-      } else if (ingredients) {
-        // Process ingredients from planned recipes
-        ingredients.forEach((item) => {
-          const labelId = item.label
-
-          // Skip items with no label or empty label
-          if (!labelId || labelsData.find((l) => l.id === labelId && l.name.trim() === "-")) {
-            return
-          }
-
-          if (!grouped[labelId]) {
-            grouped[labelId] = []
-          }
-
-          // Add ingredient to the grouped items
-          grouped[labelId].push({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity || "",
-            checked: false, // Default to unchecked
-            label: labelId,
-            recipe_name: item.recipes?.title,
-            position: item.position || 0,
-            shopping_text: item.shopping_text || "", // Use shopping_text if available
-            ingredient_id: item.id,
-          })
-        })
-      }
+    // Only fetch ingredients if there are planned recipes
+    if (plannedRecipeIds.length === 0) {
+      // No planned recipes, so no ingredients to fetch
+      setItems({})
+      return
     }
 
-    // Fetch pantry items with count > 0
-    const { data: pantryItems, error: pantryError } = await supabase.from("pantry_items").select("*").gt("count", 0) // Only items with count > 0
-
-    if (pantryError) {
-      console.error("Error fetching pantry items:", pantryError)
-    } else if (pantryItems) {
-      // Process pantry items
-      pantryItems.forEach((item) => {
-        const labelId = item.label
-
-        // Skip items with no label
-        if (!labelId) {
-          return
-        }
-
-        if (!grouped[labelId]) {
-          grouped[labelId] = []
-        }
-
-        // Add pantry item to the grouped items
-        grouped[labelId].push({
-          id: `pantry-${item.id}`,
-          name: item.name,
-          quantity: item.count.toString(),
-          checked: false,
-          label: labelId,
-          position: 0,
-          pantry_item_id: item.id,
-        })
-      })
-    }
-
-    // Also fetch items from shopping_items table
-    const { data: shoppingItems, error: shoppingError } = await supabase.from("shopping_items").select("*")
-
-    if (shoppingError) {
-      console.error("Error fetching shopping items:", shoppingError)
-    } else if (shoppingItems && shoppingItems.length > 0) {
-      // Process shopping items
-      shoppingItems.forEach((item) => {
-        const labelId = item.label
-
-        if (!labelId) return
-
-        if (!grouped[labelId]) {
-          grouped[labelId] = []
-        }
-
-        // Check if this item is already in the list (from ingredients or pantry)
-        const existingItemIndex = grouped[labelId].findIndex(
-          (groupedItem) =>
-            (item.ingredient_id && groupedItem.ingredient_id === item.ingredient_id) ||
-            (item.pantry_item_id && groupedItem.pantry_item_id === item.pantry_item_id),
+    // Fetch ingredients only from recipes that are planned
+    const { data: ingredients, error: ingredientsError } = await supabase
+      .from("ingredients")
+      .select(`
+        id,
+        name,
+        quantity,
+        label,
+        position,
+        recipe_id,
+        recipes:recipe_id (
+          title
         )
+      `)
+      .in("recipe_id", plannedRecipeIds)
+      .order("position")
 
-        if (existingItemIndex === -1) {
-          // Add new item if not already in the list
-          grouped[labelId].push({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity || "",
-            checked: item.checked || false,
-            label: labelId,
-            position: item.position || 0,
-            shopping_text: item.shopping_text || "",
-            pantry_item_id: item.pantry_item_id,
-            ingredient_id: item.ingredient_id,
-          })
-        } else {
-          // Update existing item with shopping_items data
-          grouped[labelId][existingItemIndex] = {
-            ...grouped[labelId][existingItemIndex],
-            checked: item.checked || false,
-            shopping_text: item.shopping_text || grouped[labelId][existingItemIndex].shopping_text || "",
-          }
-        }
-      })
+    if (ingredientsError) {
+      console.error("Error fetching ingredients:", ingredientsError)
+      return
     }
+
+    // Group items by label
+    const grouped: { [key: string]: ShoppingItem[] } = {}
+
+    ingredients.forEach((item) => {
+      const labelId = item.label
+
+      // Skip items with the empty label
+      if (labelId && labelsData.find((l) => l.id === labelId && l.name.trim() === "-")) {
+        return
+      }
+
+      if (!grouped[labelId]) {
+        grouped[labelId] = []
+      }
+
+      // Use quantity field for display if it exists
+      grouped[labelId].push({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity || "",
+        checked: false, // Default to unchecked
+        label: labelId,
+        recipe_name: item.recipes?.title,
+        position: item.position || 0,
+        shopping_text: item.shopping_text || "", // Use shopping_text if available
+      })
+    })
 
     // Sort items by position
     Object.keys(grouped).forEach((labelId) => {
@@ -322,6 +239,51 @@ export default function ToBuyPage() {
     })
 
     setItems(grouped)
+
+    // Also fetch items from shopping_items table
+    try {
+      const { data: shoppingItems, error: shoppingError } = await supabase.from("shopping_items").select("*")
+
+      if (shoppingError) {
+        console.error("Error fetching shopping items:", shoppingError)
+        return
+      }
+
+      if (shoppingItems && shoppingItems.length > 0) {
+        // Process shopping items and add them to the grouped items
+        shoppingItems.forEach((item) => {
+          const labelId = item.label
+
+          if (!labelId) return
+
+          if (!grouped[labelId]) {
+            grouped[labelId] = []
+          }
+
+          // Check if this item is already in the list (from ingredients)
+          const existingItemIndex = grouped[labelId].findIndex(
+            (groupedItem) => groupedItem.id === item.id || groupedItem.name === item.name,
+          )
+
+          if (existingItemIndex === -1) {
+            // Add new item
+            grouped[labelId].push({
+              id: item.id,
+              name: item.name,
+              quantity: item.quantity || "",
+              checked: item.checked || false,
+              label: labelId,
+              position: item.position || 0,
+              shopping_text: item.shopping_text || "",
+            })
+          }
+        })
+      }
+
+      setItems(grouped)
+    } catch (error) {
+      console.error("Error processing shopping items:", error)
+    }
   }
 
   const handleCheck = async (id: string) => {
@@ -352,11 +314,11 @@ export default function ToBuyPage() {
     })
 
     // Als een item is afgevinkt, controleer of het een pantry item is en zet het aantal op 0
-    const item = items[activeLabel]?.find((item) => item.id === id)
+    const { data: pantryItems, error: pantryError } = await supabase.from("pantry_items").select("*").eq("name", id) // Hier moeten we eigenlijk op een relatie zoeken, maar voor nu gebruiken we de naam
 
-    if (item?.pantry_item_id) {
+    if (!pantryError && pantryItems && pantryItems.length > 0) {
       // Update pantry item count to 0
-      await supabase.from("pantry_items").update({ count: 0 }).eq("id", item.pantry_item_id)
+      await supabase.from("pantry_items").update({ count: 0 }).eq("id", pantryItems[0].id)
     }
   }
 

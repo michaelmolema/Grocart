@@ -22,7 +22,6 @@ interface Ingredient {
   quantity: string
   label: string
   position: number
-  shopping_text?: string
 }
 
 export default function RecipeDetailPage({ params }: { params: { id: string } }) {
@@ -77,13 +76,7 @@ export default function RecipeDetailPage({ params }: { params: { id: string } })
           .map((ing) => `${ing.quantity ? ing.quantity + " " : ""}${ing.name}`)
           .join("\n")
 
-        const shareContent = `${recipeData.title}
-
-Ingredients:
-${ingredientsText}
-
-Instructions:
-${recipeData.instructions}`
+        const shareContent = `${recipeData.title}\n\nIngredients:\n${ingredientsText}\n\nInstructions:\n${recipeData.instructions}`
         setShareText(shareContent)
       }
     }

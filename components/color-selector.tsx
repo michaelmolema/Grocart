@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 
-// Wijzig de kleurenopties om zwart te vervangen door donkergrijs en wit door lichtgrijs
+// Google kleuren plus zuurstok roze, wit, zwart en transparant
 export const colorOptions = [
   "#4285F4", // Google Blue
   "#DB4437", // Google Red
@@ -11,8 +11,8 @@ export const colorOptions = [
   "#673AB7", // Purple
   "#FF5722", // Deep Orange
   "#FF6EFF", // Zuurstok roze
-  "#F5F5F5", // Heel lichtgrijs (was wit)
-  "#333333", // Donkergrijs (was zwart)
+  "#FFFFFF", // Wit
+  "#000000", // Zwart
   "transparent", // Transparant (geen kleur)
 ]
 
